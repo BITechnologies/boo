@@ -1458,6 +1458,11 @@ namespace Boo.Lang.Compiler.Steps
 			BindExpressionType(node, node.IsSingle ? TypeSystemServices.SingleType : TypeSystemServices.DoubleType);
 		}
 
+        override public void OnDecimalLiteralExpression(DecimalLiteralExpression node)
+        {
+            BindExpressionType(node, TypeSystemServices.DecimalType);
+        }
+
 		override public void OnStringLiteralExpression(StringLiteralExpression node)
 		{
 			BindExpressionType(node, TypeSystemServices.StringType);

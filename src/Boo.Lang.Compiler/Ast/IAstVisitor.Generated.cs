@@ -100,6 +100,7 @@ namespace Boo.Lang.Compiler.Ast
 		void OnCharLiteralExpression(CharLiteralExpression node);
 		void OnTimeSpanLiteralExpression(TimeSpanLiteralExpression node);
 		void OnIntegerLiteralExpression(IntegerLiteralExpression node);
+		void OnDecimalLiteralExpression(DecimalLiteralExpression node);
 		void OnDoubleLiteralExpression(DoubleLiteralExpression node);
 		void OnNullLiteralExpression(NullLiteralExpression node);
 		void OnSelfLiteralExpression(SelfLiteralExpression node);

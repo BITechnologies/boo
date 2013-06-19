@@ -2226,6 +2226,23 @@ namespace Boo.Lang.Compiler.Ast
 		}
 
 		[System.CodeDom.Compiler.GeneratedCodeAttribute("astgen.boo", "1")]
+		override public void OnDecimalLiteralExpression(Boo.Lang.Compiler.Ast.DecimalLiteralExpression node)
+		{
+			MethodInvocationExpression mie = new MethodInvocationExpression(
+					node.LexicalInfo,
+					CreateReference(node, "Boo.Lang.Compiler.Ast.DecimalLiteralExpression"));
+			mie.Arguments.Add(Serialize(node.LexicalInfo));
+			if (ShouldSerialize(node.Value))
+			{
+				mie.NamedArguments.Add(
+					new ExpressionPair(
+						CreateReference(node, "Value"),
+						Serialize(node.Value)));
+			}
+			Push(mie);
+		}
+
+		[System.CodeDom.Compiler.GeneratedCodeAttribute("astgen.boo", "1")]
 		override public void OnDoubleLiteralExpression(Boo.Lang.Compiler.Ast.DoubleLiteralExpression node)
 		{
 			MethodInvocationExpression mie = new MethodInvocationExpression(

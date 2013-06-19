@@ -1,4 +1,4 @@
-// $ANTLR 2.7.5 (20050517): "booel.g" -> "BooExpressionLexer.cs"$
+// $ANTLR 2.7.5 (20131102): "src/Boo.Lang.Parser/booel.g" -> "BooExpressionLexer.cs"$
 
 namespace Boo.Lang.Parser
 {
@@ -152,29 +152,30 @@ namespace Boo.Lang.Parser
 		public const int RE_LITERAL = 119;
 		public const int DOUBLE = 120;
 		public const int FLOAT = 121;
-		public const int TIMESPAN = 122;
-		public const int ID_SUFFIX = 123;
-		public const int LINE_CONTINUATION = 124;
-		public const int INTERPOLATED_EXPRESSION = 125;
-		public const int INTERPOLATED_REFERENCE = 126;
-		public const int SL_COMMENT = 127;
-		public const int ML_COMMENT = 128;
-		public const int WS = 129;
-		public const int X_RE_LITERAL = 130;
-		public const int NEWLINE = 131;
-		public const int DQS_ESC = 132;
-		public const int SQS_ESC = 133;
-		public const int SESC = 134;
-		public const int RE_CHAR = 135;
-		public const int X_RE_CHAR = 136;
-		public const int RE_OPTIONS = 137;
-		public const int RE_ESC = 138;
-		public const int DIGIT_GROUP = 139;
-		public const int REVERSE_DIGIT_GROUP = 140;
-		public const int AT_SYMBOL = 141;
-		public const int ID_LETTER = 142;
-		public const int DIGIT = 143;
-		public const int HEXDIGIT = 144;
+		public const int DECIMAL = 122;
+		public const int TIMESPAN = 123;
+		public const int ID_SUFFIX = 124;
+		public const int LINE_CONTINUATION = 125;
+		public const int INTERPOLATED_EXPRESSION = 126;
+		public const int INTERPOLATED_REFERENCE = 127;
+		public const int SL_COMMENT = 128;
+		public const int ML_COMMENT = 129;
+		public const int WS = 130;
+		public const int X_RE_LITERAL = 131;
+		public const int NEWLINE = 132;
+		public const int DQS_ESC = 133;
+		public const int SQS_ESC = 134;
+		public const int SESC = 135;
+		public const int RE_CHAR = 136;
+		public const int X_RE_CHAR = 137;
+		public const int RE_OPTIONS = 138;
+		public const int RE_ESC = 139;
+		public const int DIGIT_GROUP = 140;
+		public const int REVERSE_DIGIT_GROUP = 141;
+		public const int AT_SYMBOL = 142;
+		public const int ID_LETTER = 143;
+		public const int DIGIT = 144;
+		public const int HEXDIGIT = 145;
 		
 		
 	

@@ -994,6 +994,12 @@ namespace Boo.Lang.Compiler.Ast.Visitors
 			}
 		}
 
+        override public void OnDecimalLiteralExpression(DecimalLiteralExpression e)
+        {
+            Write(e.Value.ToString("G", CultureInfo.InvariantCulture));
+            Write("dec");
+        }
+
 		override public void OnReferenceExpression(ReferenceExpression node)
 		{
 			Write(node.Name);

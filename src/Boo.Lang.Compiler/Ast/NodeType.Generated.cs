@@ -101,6 +101,7 @@ namespace Boo.Lang.Compiler.Ast
 		CharLiteralExpression,
 		TimeSpanLiteralExpression,
 		IntegerLiteralExpression,
+		DecimalLiteralExpression,
 		DoubleLiteralExpression,
 		NullLiteralExpression,
 		SelfLiteralExpression,

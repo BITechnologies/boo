@@ -1694,6 +1694,16 @@ namespace Boo.Lang.Compiler.Ast
 				return;
 			handler(node);
 		}
+		public event NodeEvent<DecimalLiteralExpression> OnDecimalLiteralExpression;
+
+		[System.CodeDom.Compiler.GeneratedCodeAttribute("astgen.boo", "1")]
+		void IAstVisitor.OnDecimalLiteralExpression(Boo.Lang.Compiler.Ast.DecimalLiteralExpression node)
+		{
+			var handler = OnDecimalLiteralExpression; 
+			if (handler == null)
+				return;
+			handler(node);
+		}
 		public event NodeEvent<DoubleLiteralExpression> OnDoubleLiteralExpression;
 
 		[System.CodeDom.Compiler.GeneratedCodeAttribute("astgen.boo", "1")]

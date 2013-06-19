@@ -176,6 +176,11 @@ namespace Boo.Lang.Compiler.Ast
 			return new DoubleLiteralExpression(value);
 		}
 
+        public Expression Serialize(decimal value)
+        {
+            return new DecimalLiteralExpression(value);
+        }
+
 		public Expression Serialize(TimeSpan value)
 		{
 			return new TimeSpanLiteralExpression(value);

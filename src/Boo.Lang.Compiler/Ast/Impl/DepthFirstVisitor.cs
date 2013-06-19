@@ -1270,6 +1270,11 @@ namespace Boo.Lang.Compiler.Ast
 		}
 
 		[System.CodeDom.Compiler.GeneratedCodeAttribute("astgen.boo", "1")]
+		public virtual void OnDecimalLiteralExpression(Boo.Lang.Compiler.Ast.DecimalLiteralExpression node)
+		{
+		}
+
+		[System.CodeDom.Compiler.GeneratedCodeAttribute("astgen.boo", "1")]
 		public virtual void OnDoubleLiteralExpression(Boo.Lang.Compiler.Ast.DoubleLiteralExpression node)
 		{
 		}

@@ -213,6 +213,12 @@ print [| 42 |]";
 		}
 		
 		[Test]
+		public void DecimalLiterals()
+		{
+			RunCompilerTestCase("decimal0.boo");
+		}
+    	
+		[Test]
 		public void BooleanFromBoxedValueTypes()
 		{
 			RunCompilerTestCase("bool0.boo");

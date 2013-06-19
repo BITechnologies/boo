@@ -458,6 +458,9 @@ class IntegerLiteralExpression(LiteralExpression):
 	Value as long
 	IsLong as bool
 
+class DecimalLiteralExpression(LiteralExpression):
+	Value as System.Decimal
+
 class DoubleLiteralExpression(LiteralExpression):
 	Value as double
 	IsSingle as bool

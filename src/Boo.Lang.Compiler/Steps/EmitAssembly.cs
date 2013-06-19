@@ -101,6 +101,8 @@ namespace Boo.Lang.Compiler.Steps
 
 		static MethodInfo Math_Pow = Methods.Of<double, double, double>(Math.Pow);
 
+		static ConstructorInfo Decimal_Constructor = typeof(Decimal).GetConstructor(new Type[] { Types.Int, Types.Int, Types.Int, Types.Bool, Types.Byte });
+
 		static ConstructorInfo List_EmptyConstructor = Types.List.GetConstructor(Type.EmptyTypes);
 
 		static ConstructorInfo List_ArrayBoolConstructor = Types.List.GetConstructor(new Type[] { Types.ObjectArray, Types.Bool });
@@ -2694,6 +2696,24 @@ namespace Boo.Lang.Compiler.Steps
 			IType type = node.ExpressionType ?? TypeSystemServices.DoubleType;
 			EmitLoadLiteral(type, node.Value);
 			PushType(type);
+		}
+
+		override public void OnDecimalLiteralExpression(DecimalLiteralExpression node)
+		{
+			// Invoke Decimal(int lo, int mid, int hi, bool isNegative, byte scale)
+			int[] bits = Decimal.GetBits(node.Value);
+			_il.Emit(OpCodes.Ldc_I4, bits[0]);
+			_il.Emit(OpCodes.Ldc_I4, bits[1]);
+			_il.Emit(OpCodes.Ldc_I4, bits[2]);
+			_il.Emit(bits[3] < 0 ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0); // bool isNegative
+			int scale = (bits[3]&0x7FFFFFFF)>>16;
+			if (scale<0)
+				throw new Exception("unexpected scale less than 0");
+			if (scale>28)
+				throw new Exception("unexpected scale greater than 28");
+			_il.Emit(OpCodes.Ldc_I4_S, scale);
+			_il.Emit(OpCodes.Newobj, Decimal_Constructor);
+			PushType(TypeSystemServices.DecimalType);
 		}
 
 		void EmitLoadLiteral(int i)

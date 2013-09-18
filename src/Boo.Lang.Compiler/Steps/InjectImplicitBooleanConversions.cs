@@ -39,6 +39,7 @@ namespace Boo.Lang.Compiler.Steps
 	{
 		private IMethod _String_IsNullOrEmpty;
 		private Method _currentMethod;
+        private IMember _DateTime_MinValue;
 
 		public override void Dispose()
 		{
@@ -204,6 +205,16 @@ namespace Boo.Lang.Compiler.Steps
 				return notIsNullOrEmpty;
 			}
 
+            //date time in a boolean context means DateTime.MinValue
+            if (TypeSystemServices.DateTimeType == type)
+            {
+                //return [| $(expression) != System.DateTime.MinValue |]
+                var op_Inequality = (IMethod)NameResolutionService.Resolve(type, AstUtil.GetMethodNameForOperator(BinaryOperatorType.Inequality));
+                var notMinValue = CodeBuilder.CreateMethodInvocation(op_Inequality, expression, CodeBuilder.CreateMemberReference(DateTime_MinValue));
+                BindExpressionType(notMinValue, TypeSystemServices.BoolType);
+                return notMinValue;
+            }
+
 			// reference types can be used in bool context
 			if (!type.IsValueType)
 				return expression;
@@ -221,5 +232,15 @@ namespace Boo.Lang.Compiler.Steps
 				return _String_IsNullOrEmpty = TypeSystemServices.Map(Methods.Of<string, bool>(string.IsNullOrEmpty));
 			}
 		}
+
+        IMember DateTime_MinValue
+        {
+            get
+            {
+                if (_DateTime_MinValue != null)
+                    return _DateTime_MinValue;
+                return _DateTime_MinValue = (IMember)TypeSystemServices.Map(typeof(DateTime).GetField("MinValue"));
+            }
+        }
 	}
 }

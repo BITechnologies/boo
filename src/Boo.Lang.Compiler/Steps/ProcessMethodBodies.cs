@@ -2526,8 +2526,16 @@ namespace Boo.Lang.Compiler.Steps
 				var mre = new MemberReferenceExpression(node.Expression.LexicalInfo, node.Expression, "Value");
 				Visit(mre);
 				node.Replace(node.Expression, mre);
-			}
-		}
+                return;
+            }
+            if (!TypeSystemServices.IsNullable(expressionType) && TypeSystemServices.IsNullable(returnType))
+            {
+                var nullable = CreateNullableInstantiation(node.Expression, returnType);
+                Visit(nullable);
+                node.Replace(node.Expression, nullable);
+                return;
+            }
+        }
 
 		protected Expression GetCorrectIterator(Expression iterator)
 		{

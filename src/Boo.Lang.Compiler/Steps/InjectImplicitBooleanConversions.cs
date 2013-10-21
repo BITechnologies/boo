@@ -35,175 +35,176 @@ using Boo.Lang.Compiler.Util;
 
 namespace Boo.Lang.Compiler.Steps
 {
-	public class InjectImplicitBooleanConversions : AbstractNamespaceSensitiveVisitorCompilerStep
-	{
-		private IMethod _String_IsNullOrEmpty;
-		private Method _currentMethod;
+    public class InjectImplicitBooleanConversions : AbstractNamespaceSensitiveVisitorCompilerStep
+    {
+        private IMethod _String_IsNullOrEmpty;
+        private Method _currentMethod;
         private IMember _DateTime_MinValue;
+        private IMember _Guid_Empty;
 
-		public override void Dispose()
-		{
-			_String_IsNullOrEmpty = null;
-			_currentMethod = null;
-			base.Dispose();
-		}
+        public override void Dispose()
+        {
+            _String_IsNullOrEmpty = null;
+            _currentMethod = null;
+            base.Dispose();
+        }
 
-		public override void OnMethod(Method node)
-		{
-			_currentMethod = node;
-			Visit(node.Body);
-		}
+        public override void OnMethod(Method node)
+        {
+            _currentMethod = node;
+            Visit(node.Body);
+        }
 
-		public override void OnConstructor(Constructor node)
-		{
-			OnMethod(node);
-		}
+        public override void OnConstructor(Constructor node)
+        {
+            OnMethod(node);
+        }
 
-		override public void LeaveUnlessStatement(UnlessStatement node)
-		{
-			node.Condition = AssertBoolContext(node.Condition);
-		}
+        override public void LeaveUnlessStatement(UnlessStatement node)
+        {
+            node.Condition = AssertBoolContext(node.Condition);
+        }
 
-		override public void LeaveIfStatement(IfStatement node)
-		{
-			node.Condition = AssertBoolContext(node.Condition);
-		}
+        override public void LeaveIfStatement(IfStatement node)
+        {
+            node.Condition = AssertBoolContext(node.Condition);
+        }
 
-		override public void LeaveConditionalExpression(ConditionalExpression node)
-		{
-			node.Condition = AssertBoolContext(node.Condition);
-		}
+        override public void LeaveConditionalExpression(ConditionalExpression node)
+        {
+            node.Condition = AssertBoolContext(node.Condition);
+        }
 
-		override public void LeaveWhileStatement(WhileStatement node)
-		{
-			node.Condition = AssertBoolContext(node.Condition);
-		}
+        override public void LeaveWhileStatement(WhileStatement node)
+        {
+            node.Condition = AssertBoolContext(node.Condition);
+        }
 
-		public override void LeaveUnaryExpression(UnaryExpression node)
-		{
-			switch (node.Operator)
-			{
-				case UnaryOperatorType.LogicalNot:
-					node.Operand = AssertBoolContext(node.Operand);
-					break;
-			}
-		}
+        public override void LeaveUnaryExpression(UnaryExpression node)
+        {
+            switch (node.Operator)
+            {
+                case UnaryOperatorType.LogicalNot:
+                    node.Operand = AssertBoolContext(node.Operand);
+                    break;
+            }
+        }
 
-		public override void LeaveBinaryExpression(BinaryExpression node)
-		{
-			switch (node.Operator)
-			{
-				case BinaryOperatorType.And:
-				case BinaryOperatorType.Or:
-					BindLogicalOperator(node);
-					break;
-			}
-		}
+        public override void LeaveBinaryExpression(BinaryExpression node)
+        {
+            switch (node.Operator)
+            {
+                case BinaryOperatorType.And:
+                case BinaryOperatorType.Or:
+                    BindLogicalOperator(node);
+                    break;
+            }
+        }
 
-		void BindLogicalOperator(BinaryExpression node)
-		{
-			if (IsLogicalCondition(node))
-				BindLogicalOperatorCondition(node);
-			else
-				BindLogicalOperatorExpression(node);
-		}
+        void BindLogicalOperator(BinaryExpression node)
+        {
+            if (IsLogicalCondition(node))
+                BindLogicalOperatorCondition(node);
+            else
+                BindLogicalOperatorExpression(node);
+        }
 
-		public static bool IsLogicalCondition(Expression node)
-		{
-			Node condition = node;
-			while (IsLogicalExpression(condition.ParentNode))
-				condition = condition.ParentNode;
-			return IsConditionOfConditionalStatement(condition);
-		}
+        public static bool IsLogicalCondition(Expression node)
+        {
+            Node condition = node;
+            while (IsLogicalExpression(condition.ParentNode))
+                condition = condition.ParentNode;
+            return IsConditionOfConditionalStatement(condition);
+        }
 
-		private static bool IsConditionOfConditionalStatement(Node condition)
-		{
-			var conditionalStatement = condition.ParentNode as ConditionalStatement;
-			return conditionalStatement != null && conditionalStatement.Condition == condition;
-		}
+        private static bool IsConditionOfConditionalStatement(Node condition)
+        {
+            var conditionalStatement = condition.ParentNode as ConditionalStatement;
+            return conditionalStatement != null && conditionalStatement.Condition == condition;
+        }
 
-		static bool IsLogicalExpression(Node node)
-		{
-			switch (node.NodeType)
-			{
-				case NodeType.BinaryExpression:
-					return AstUtil.GetBinaryOperatorKind((BinaryExpression)node) == BinaryOperatorKind.Logical;
-				case NodeType.UnaryExpression:
-					return ((UnaryExpression) node).Operator == UnaryOperatorType.LogicalNot;
-			}
-			return false;
-		}
+        static bool IsLogicalExpression(Node node)
+        {
+            switch (node.NodeType)
+            {
+                case NodeType.BinaryExpression:
+                    return AstUtil.GetBinaryOperatorKind((BinaryExpression)node) == BinaryOperatorKind.Logical;
+                case NodeType.UnaryExpression:
+                    return ((UnaryExpression) node).Operator == UnaryOperatorType.LogicalNot;
+            }
+            return false;
+        }
 
-		private void BindLogicalOperatorExpression(BinaryExpression node)
-		{
-			var condition = AssertBoolContext(node.Left);
-			if (condition != node.Left)
-			{
-				// implicit conversion, original value has to be preserved
-				// a and b => (b if op_Implicit(a) else a)
-				// a or b => (a if op_Implicit(a) else b)
-				var local = DeclareTempLocal(GetExpressionType(node.Left));
-				var a = CodeBuilder.CreateReference(local);
-				var b = node.Right;
-				var e = node.Operator == BinaryOperatorType.And
-							? new ConditionalExpression(node.LexicalInfo) { Condition = condition, TrueValue = b, FalseValue = a }
-							: new ConditionalExpression(node.LexicalInfo) { Condition = condition, TrueValue = a, FalseValue = b };
+        private void BindLogicalOperatorExpression(BinaryExpression node)
+        {
+            var condition = AssertBoolContext(node.Left);
+            if (condition != node.Left)
+            {
+                // implicit conversion, original value has to be preserved
+                // a and b => (b if op_Implicit(a) else a)
+                // a or b => (a if op_Implicit(a) else b)
+                var local = DeclareTempLocal(GetExpressionType(node.Left));
+                var a = CodeBuilder.CreateReference(local);
+                var b = node.Right;
+                var e = node.Operator == BinaryOperatorType.And
+                            ? new ConditionalExpression(node.LexicalInfo) { Condition = condition, TrueValue = b, FalseValue = a }
+                            : new ConditionalExpression(node.LexicalInfo) { Condition = condition, TrueValue = a, FalseValue = b };
 
-				if (condition.ReplaceNodes((n) => n == node.Left, CodeBuilder.CreateAssignment(a.CloneNode(), node.Left)) != 1)
-					throw new InvalidOperationException();
+                if (condition.ReplaceNodes((n) => n == node.Left, CodeBuilder.CreateAssignment(a.CloneNode(), node.Left)) != 1)
+                    throw new InvalidOperationException();
 
-				BindExpressionType(e, GetMostGenericType(node));
-				node.ParentNode.Replace(node, e);
-			}
-		}
+                BindExpressionType(e, GetMostGenericType(node));
+                node.ParentNode.Replace(node, e);
+            }
+        }
 
-		private IType GetMostGenericType(BinaryExpression node)
-		{
-			return TypeSystemServices.GetMostGenericType(GetExpressionType(node.Left), GetExpressionType(node.Right));
-		}
+        private IType GetMostGenericType(BinaryExpression node)
+        {
+            return TypeSystemServices.GetMostGenericType(GetExpressionType(node.Left), GetExpressionType(node.Right));
+        }
 
-		protected InternalLocal DeclareTempLocal(IType localType)
-		{
-			return CodeBuilder.DeclareTempLocal(_currentMethod, localType);
-		}
+        protected InternalLocal DeclareTempLocal(IType localType)
+        {
+            return CodeBuilder.DeclareTempLocal(_currentMethod, localType);
+        }
 
-		private void BindLogicalOperatorCondition(BinaryExpression node)
-		{
-			node.Left = AssertBoolContext(node.Left);
-			node.Right = AssertBoolContext(node.Right);
-			BindExpressionType(node, GetMostGenericType(node));
-		}
+        private void BindLogicalOperatorCondition(BinaryExpression node)
+        {
+            node.Left = AssertBoolContext(node.Left);
+            node.Right = AssertBoolContext(node.Right);
+            BindExpressionType(node, GetMostGenericType(node));
+        }
 
-		Expression AssertBoolContext(Expression expression)
-		{
-			var type = GetExpressionType(expression);
-			if (TypeSystemServices.IsNumberOrBool(type) || type.IsEnum)
-				return expression;
+        Expression AssertBoolContext(Expression expression)
+        {
+            var type = GetExpressionType(expression);
+            if (TypeSystemServices.IsNumberOrBool(type) || type.IsEnum)
+                return expression;
 
-			var op_Implicit = TypeSystemServices.FindImplicitConversionOperator(type, TypeSystemServices.BoolType);
-			if (op_Implicit != null)
-			{
-				//return [| $op_Implicit($expression) |]
-				return CodeBuilder.CreateMethodInvocation(op_Implicit, expression);
-			}
+            var op_Implicit = TypeSystemServices.FindImplicitConversionOperator(type, TypeSystemServices.BoolType);
+            if (op_Implicit != null)
+            {
+                //return [| $op_Implicit($expression) |]
+                return CodeBuilder.CreateMethodInvocation(op_Implicit, expression);
+            }
 
-			// nullable types can be used in bool context
-			if (TypeSystemServices.IsNullable(type))
-			{
-				//return [| $(expression).HasValue |]
-				return CodeBuilder.CreateMethodInvocation(expression, NameResolutionService.ResolveMethod(type, "get_HasValue"));
-			}
+            // nullable types can be used in bool context
+            if (TypeSystemServices.IsNullable(type))
+            {
+                //return [| $(expression).HasValue |]
+                return CodeBuilder.CreateMethodInvocation(expression, NameResolutionService.ResolveMethod(type, "get_HasValue"));
+            }
 
-			// string in a boolean context means string.IsNullOrEmpty (BOO-1035)
-			if (TypeSystemServices.StringType == type)
-			{
-				//return [| not string.IsNullOrEmpty($expression) |]
-				var notIsNullOrEmpty = new UnaryExpression(
-					UnaryOperatorType.LogicalNot,
-					CodeBuilder.CreateMethodInvocation(String_IsNullOrEmpty, expression));
-				BindExpressionType(notIsNullOrEmpty, TypeSystemServices.BoolType);
-				return notIsNullOrEmpty;
-			}
+            // string in a boolean context means string.IsNullOrEmpty (BOO-1035)
+            if (TypeSystemServices.StringType == type)
+            {
+                //return [| not string.IsNullOrEmpty($expression) |]
+                var notIsNullOrEmpty = new UnaryExpression(
+                    UnaryOperatorType.LogicalNot,
+                    CodeBuilder.CreateMethodInvocation(String_IsNullOrEmpty, expression));
+                BindExpressionType(notIsNullOrEmpty, TypeSystemServices.BoolType);
+                return notIsNullOrEmpty;
+            }
 
             //date time in a boolean context means DateTime.MinValue
             if (TypeSystemServices.DateTimeType == type)
@@ -215,23 +216,33 @@ namespace Boo.Lang.Compiler.Steps
                 return notMinValue;
             }
 
-			// reference types can be used in bool context
-			if (!type.IsValueType)
-				return expression;
+            //guid in a boolean context means Guid.Empty
+            if (TypeSystemServices.Map(typeof(Guid)) == type)
+            {
+                //return [| $(expression) != System.Guid.Empty |]
+                var op_Inequality = (IMethod)NameResolutionService.Resolve(type, AstUtil.GetMethodNameForOperator(BinaryOperatorType.Inequality));
+                var notEmptyValue = CodeBuilder.CreateMethodInvocation(op_Inequality, expression, CodeBuilder.CreateMemberReference(Guid_Empty));
+                BindExpressionType(notEmptyValue, TypeSystemServices.BoolType);
+                return notEmptyValue;
+            }
 
-			Error(CompilerErrorFactory.BoolExpressionRequired(expression, type));
-			return expression;
-		}
+            // reference types can be used in bool context
+            if (!type.IsValueType)
+                return expression;
 
-		IMethod String_IsNullOrEmpty
-		{
-			get
-			{
-				if (_String_IsNullOrEmpty != null)
-					return _String_IsNullOrEmpty;
-				return _String_IsNullOrEmpty = TypeSystemServices.Map(Methods.Of<string, bool>(string.IsNullOrEmpty));
-			}
-		}
+            Error(CompilerErrorFactory.BoolExpressionRequired(expression, type));
+            return expression;
+        }
+
+        IMethod String_IsNullOrEmpty
+        {
+            get
+            {
+                if (_String_IsNullOrEmpty != null)
+                    return _String_IsNullOrEmpty;
+                return _String_IsNullOrEmpty = TypeSystemServices.Map(Methods.Of<string, bool>(string.IsNullOrEmpty));
+            }
+        }
 
         IMember DateTime_MinValue
         {
@@ -242,5 +253,15 @@ namespace Boo.Lang.Compiler.Steps
                 return _DateTime_MinValue = (IMember)TypeSystemServices.Map(typeof(DateTime).GetField("MinValue"));
             }
         }
-	}
+
+        IMember Guid_Empty
+        {
+            get
+            {
+                if (_Guid_Empty != null)
+                    return _Guid_Empty;
+                return _Guid_Empty = (IMember)TypeSystemServices.Map(typeof(Guid).GetField("Empty"));
+            }
+        }
+    }
 }

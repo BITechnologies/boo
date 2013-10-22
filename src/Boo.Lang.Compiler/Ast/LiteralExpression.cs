@@ -41,6 +41,7 @@ namespace Boo.Lang.Compiler.Ast
 	[System.Xml.Serialization.XmlInclude(typeof(HashLiteralExpression))]
 	[System.Xml.Serialization.XmlInclude(typeof(ListLiteralExpression))]
 	[System.Xml.Serialization.XmlInclude(typeof(DoubleLiteralExpression))]
+	[System.Xml.Serialization.XmlInclude(typeof(DecimalLiteralExpression))]
 	public abstract partial class LiteralExpression
 	{		
 		public LiteralExpression()

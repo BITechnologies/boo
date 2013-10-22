@@ -442,6 +442,7 @@
     <Compile Include="Steps\ExpandVarArgsMethodInvocations.cs" />
     <Compile Include="Steps\ForeignReferenceCollector.cs" />
     <Compile Include="Steps\Generators\GeneratorExpressionProcessor.cs" />
+    <Compile Include="Steps\Generators\GeneratorExpressionTrees.cs" />
     <Compile Include="Steps\Generators\GeneratorItemTypeInferrer.cs" />
     <Compile Include="Steps\Generators\GeneratorMethodProcessor.cs" />
     <Compile Include="Steps\Generators\GeneratorSkeleton.cs" />
@@ -483,6 +484,7 @@
     <Compile Include="Steps\ProcessInheritedAbstractMembers.cs" />
     <Compile Include="Steps\ProcessMethodBodies.cs" />
     <Compile Include="Steps\ProcessMethodBodiesWithDuckTyping.cs" />
+    <Compile Include="Steps\ProcessMethodBodiesWithExpressionTreesGeneration.cs" />
     <Compile Include="Steps\ProcessSharedLocals.cs" />
     <Compile Include="Steps\ReifyTypes.cs" />
     <Compile Include="Steps\RemoveDeadCode.cs" />

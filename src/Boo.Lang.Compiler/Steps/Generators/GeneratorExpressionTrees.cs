@@ -126,9 +126,13 @@ namespace Boo.Lang.Compiler.Steps
             if (entityWithParams == null) return false;
             var ix = arguments.IndexOf(node);
             var entityParameters = entityWithParams.GetParameters();
+            if (arguments.Count > entityParameters.Length)
+            {
+                return false;
+            }
             if (arguments.Count < entityParameters.Length)
             {
-                ix++;
+                ix += entityParameters.Length - arguments.Count;
             }
             var targetParameter = entityWithParams.GetParameters()[ix];
             return IsOfLinqExpressionType(targetParameter.Type);

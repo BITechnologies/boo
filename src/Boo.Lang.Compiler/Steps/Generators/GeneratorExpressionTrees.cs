@@ -136,7 +136,7 @@ namespace Boo.Lang.Compiler.Steps
 
         private static bool IsOfLinqExpressionType(TypeReference typeReference)
         {
-            return IsOfLinqExpressionType(TypeSystemServices.GetType(typeReference));
+            return typeReference != null && IsOfLinqExpressionType(TypeSystemServices.GetType(typeReference));
         }
 
         private static bool IsOfLinqExpressionType(IType type)

@@ -49,12 +49,14 @@ namespace Boo.Lang.Compiler.Steps
             //to get return type of the expression we clone original expression and run it through the pipeline
             //normally the method for the closure will be added but we remove it as it is not needed
             TypeMember addedClosure = null;
-            CurrentMethod.DeclaringType.Members.Changed += (sender, e) =>
+            EventHandler membersChanged = (sender, e) =>
             {
                 addedClosure = CurrentMethod.DeclaringType.Members.Last;
             };
+            CurrentMethod.DeclaringType.Members.Changed += membersChanged;
             var clone = expr.CloneNode();
             Visit(clone);
+            CurrentMethod.DeclaringType.Members.Changed -= membersChanged;
             CurrentMethod.DeclaringType.Members.Remove(addedClosure); 
             var exprReturnType = CodeBuilder.CreateTypeReference((clone.Body.FirstStatement as ReturnStatement).Expression.ExpressionType);
 
@@ -84,11 +86,6 @@ namespace Boo.Lang.Compiler.Steps
             linqify.Body.Add(p1Init);
             linqify.Body.Add(new ReturnStatement(resultExpr));
             return new MethodInvocationExpression(linqify);
-        }
-
-        void Members_Changed(object sender, EventArgs e)
-        {
-            throw new NotImplementedException();
         }
 
         private TypeReference GetLambdaParameterType(BlockExpression expr)

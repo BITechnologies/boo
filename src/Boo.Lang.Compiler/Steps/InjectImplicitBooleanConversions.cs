@@ -206,24 +206,16 @@ namespace Boo.Lang.Compiler.Steps
                 return notIsNullOrEmpty;
             }
 
-            //date time in a boolean context means DateTime.MinValue
-            if (TypeSystemServices.DateTimeType == type)
+            //value type is compared to default value of a given value type
+            if (type.IsValueType)
             {
+                var local = CodeBuilder.CreateReference(DeclareTempLocal(type));
+                CodeBuilder.CreateInitValueType(expression.LexicalInfo, local);
                 //return [| $(expression) != System.DateTime.MinValue |]
                 var op_Inequality = (IMethod)NameResolutionService.Resolve(type, AstUtil.GetMethodNameForOperator(BinaryOperatorType.Inequality));
-                var notMinValue = CodeBuilder.CreateMethodInvocation(op_Inequality, expression, CodeBuilder.CreateMemberReference(DateTime_MinValue));
+                var notMinValue = CodeBuilder.CreateMethodInvocation(op_Inequality, expression, local);
                 BindExpressionType(notMinValue, TypeSystemServices.BoolType);
                 return notMinValue;
-            }
-
-            //guid in a boolean context means Guid.Empty
-            if (TypeSystemServices.Map(typeof(Guid)) == type)
-            {
-                //return [| $(expression) != System.Guid.Empty |]
-                var op_Inequality = (IMethod)NameResolutionService.Resolve(type, AstUtil.GetMethodNameForOperator(BinaryOperatorType.Inequality));
-                var notEmptyValue = CodeBuilder.CreateMethodInvocation(op_Inequality, expression, CodeBuilder.CreateMemberReference(Guid_Empty));
-                BindExpressionType(notEmptyValue, TypeSystemServices.BoolType);
-                return notEmptyValue;
             }
 
             // reference types can be used in bool context

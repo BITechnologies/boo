@@ -131,33 +131,10 @@ namespace Boo.Lang.Compiler.Steps
         {
             var parent = expr.ParentNode as MethodInvocationExpression;
             var targetEntity = TargetEntity(parent, expr) as IMethod;
-            var target = EnsureMemberReference(parent).Target;
+            var target = EnsureMemberReferenceForExtension(parent).Target;
 
             var targetType = target.ExpressionType.ConstructedInfo.GenericArguments[0];
             return CodeBuilder.CreateTypeReference(targetType);
-        }
-
-        private MemberReferenceExpression EnsureMemberReference(MethodInvocationExpression node)
-        {
-            Expression target = node.Target;
-            GenericReferenceExpression gre = target as GenericReferenceExpression;
-            if (null != gre)
-                target = gre.Target;
-
-            MemberReferenceExpression memberRef = target as MemberReferenceExpression;
-            if (null != memberRef)
-                return memberRef;
-
-            node.Target = memberRef = CodeBuilder.MemberReferenceForEntity(
-                CreateSelfReference(),
-                GetEntity(node.Target));
-
-            return memberRef;
-        }
-
-        private SelfLiteralExpression CreateSelfReference()
-        {
-            return CodeBuilder.CreateSelfReference(CurrentType);
         }
 
         private IEntity TargetEntity(MethodInvocationExpression parent, BlockExpression expr)
@@ -166,7 +143,7 @@ namespace Boo.Lang.Compiler.Steps
             IEntity targetEntity;
             if (ambiguous != null)
             {
-                targetEntity = ambiguous.Entities.First(e => NeedsLinqExpression(e, parent.Arguments, expr));
+                targetEntity = ambiguous.Entities.First(e => NeedsLinqExpression(e, parent, expr));
             }
             else
             {
@@ -216,25 +193,26 @@ namespace Boo.Lang.Compiler.Steps
             Ambiguous targetEntity = parent.Target.Entity as Ambiguous;
             if (targetEntity != null)
             {
-                return targetEntity.Entities.Any(e => NeedsLinqExpression(e, parent.Arguments, node));
+                return targetEntity.Entities.Any(e => NeedsLinqExpression(e, parent, node));
             }
 
-            return NeedsLinqExpression(parent.Target.Entity, parent.Arguments, node);
+            return NeedsLinqExpression(parent.Target.Entity, parent, node);
         }
 
-        private bool NeedsLinqExpression(IEntity entity, ExpressionCollection arguments, BlockExpression node)
+        private bool NeedsLinqExpression(IEntity entity, MethodInvocationExpression parent, BlockExpression node)
         {
             var entityWithParams = entity as IEntityWithParameters;
             if (entityWithParams == null) return false;
+            var arguments = parent.Arguments;
             var ix = arguments.IndexOf(node);
             var entityParameters = entityWithParams.GetParameters();
             if (arguments.Count > entityParameters.Length)
             {
                 return false;
             }
-            if (arguments.Count < entityParameters.Length)
+            if (arguments.Count < entityParameters.Length && ResolvedAsExtension(parent))
             {
-                ix += entityParameters.Length - arguments.Count;
+                ix += 1;
             }
             var targetParameter = entityParameters[ix];
             return IsOfLinqExpressionType(targetParameter.Type);

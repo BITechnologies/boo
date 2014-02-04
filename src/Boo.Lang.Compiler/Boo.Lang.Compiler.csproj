@@ -484,7 +484,6 @@
     <Compile Include="Steps\ProcessInheritedAbstractMembers.cs" />
     <Compile Include="Steps\ProcessMethodBodies.cs" />
     <Compile Include="Steps\ProcessMethodBodiesWithDuckTyping.cs" />
-    <Compile Include="Steps\ProcessMethodBodiesWithExpressionTreesGeneration.cs" />
     <Compile Include="Steps\ProcessSharedLocals.cs" />
     <Compile Include="Steps\ReifyTypes.cs" />
     <Compile Include="Steps\RemoveDeadCode.cs" />

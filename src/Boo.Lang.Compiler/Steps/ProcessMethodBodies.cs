@@ -723,16 +723,24 @@ namespace Boo.Lang.Compiler.Steps
 			if (WasVisited(node)) return;
 			if (ShouldDeferClosureProcessing(node)) return;
 
-			InferClosureSignature(node);
-			ProcessClosureBody(node);
+			var expression = InferClosureSignature(node);
+			ProcessClosureBody(node, expression);
 		}
 
-		private void InferClosureSignature(BlockExpression node)
+		private bool InferClosureSignature(BlockExpression node)
 		{
 			ClosureSignatureInferrer inferrer = new ClosureSignatureInferrer(node);
 			ICallableType inferredCallableType = inferrer.InferCallableType();
 			BindExpressionType(node, inferredCallableType);
 			AddInferredClosureParameterTypes(node, inferredCallableType);
+			if (inferrer.IsExpression && inferredCallableType != null)
+			{
+				if (!(inferredCallableType.GetSignature().ReturnType is IGenericParameter))
+				{
+					node.ReturnType = CodeBuilder.CreateTypeReference(inferredCallableType.GetSignature().ReturnType);
+				}
+			}
+			return inferrer.IsExpression;
 		}
 
 		private bool ShouldDeferClosureProcessing(BlockExpression node)
@@ -775,7 +783,7 @@ namespace Boo.Lang.Compiler.Steps
 			}
 		}
 
-		void ProcessClosureBody(BlockExpression node)
+		void ProcessClosureBody(BlockExpression node, bool isExpression = false)
 		{
 			MarkVisited(node);
 			if (node.ContainsAnnotation("inline"))
@@ -795,8 +803,10 @@ namespace Boo.Lang.Compiler.Steps
 			closure.Parameters = node.Parameters;
 			closure.Body = node.Body;
 
-			CurrentMethod.DeclaringType.Members.Add(closure);
-
+			if (!isExpression)
+			{
+				CurrentMethod.DeclaringType.Members.Add(closure);
+			}
 			CodeBuilder.BindParameterDeclarations(_currentMethod.IsStatic, closure);
 
 			// check for invalid names and
@@ -810,6 +820,7 @@ namespace Boo.Lang.Compiler.Steps
 			if (explicitClosureName != null)
 				ns.DelegateTo(new AliasedNamespace(explicitClosureName, closureEntity));
 
+			var nodeToConvert = node.CloneNode();
 			ProcessMethodBody(closureEntity, ns);
 
 			if (closureEntity.ReturnType is Unknown)
@@ -817,6 +828,10 @@ namespace Boo.Lang.Compiler.Steps
 
 			node.ExpressionType = closureEntity.Type;
 			node.Entity = closureEntity;
+			if (isExpression)
+			{
+				ConvertToExpressionTree(nodeToConvert, node);
+			}
 		}
 
 		protected Method CurrentMethod
@@ -824,7 +839,7 @@ namespace Boo.Lang.Compiler.Steps
 			get { return _currentMethod.Method; }
 		}
 
-		private void ProcessClosureInMethodInvocation(GenericParameterInferrer inferrer, BlockExpression closure, ICallableType formalType)
+		private void ProcessClosureInMethodInvocation(GenericParameterInferrer inferrer, BlockExpression closure, ICallableType formalType, bool isExpression)
 		{
 			var sig = formalType.GetSignature();
 
@@ -850,8 +865,11 @@ namespace Boo.Lang.Compiler.Steps
 				if (pd.Type != null) continue;
 				pd.Type = CodeBuilder.CreateTypeReference(replacer.MapType(sig.Parameters[i].Type));
 			}
-
-			ProcessClosureBody(closure);
+			if (isExpression && !(sig.ReturnType is IGenericParameter))
+			{
+				closure.ReturnType = CodeBuilder.CreateTypeReference(sig.ReturnType);
+			}
+			ProcessClosureBody(closure, isExpression);
 		}
 
 		private TypeMemberModifiers ClosureModifiers()
@@ -6034,6 +6052,108 @@ namespace Boo.Lang.Compiler.Steps
 				FlushFieldInitializers((ClassDefinition) field.DeclaringType);
 
 			return member;
+		}
+
+		private bool ConvertToExpressionTree(BlockExpression closure, BlockExpression processedNode)
+		{
+			var result = Linqify(closure, processedNode);
+			Visit(result);
+			MarkVisited(closure);
+			MarkVisited(processedNode);
+			MarkVisited(result);
+			processedNode.ParentNode.Replace(processedNode, result);
+			return true;
+		}
+
+		public Expression Linqify(BlockExpression closure, BlockExpression processedNode)
+		{
+			//assert on param
+			//assert one expression statement
+			if (closure.Parameters.Count > 1)
+			{
+				throw new NotSupportedException("Only lambdas with zero or one parameter are supported");
+			}
+			if (closure.Body.Statements.Count != 1 &&
+				closure.Body.FirstStatement as ExpressionStatement == null)
+			{
+				throw new NotSupportedException("A lambda expression with a statement body cannot be converted to an expression tree");
+			}
+
+            var closureReturnType = CodeBuilder.CreateTypeReference((processedNode.ExpressionType as ICallableType).GetSignature().ReturnType);
+            var bodyReturnType = CodeBuilder.CreateTypeReference((processedNode.Body.FirstStatement as ReturnStatement).Expression.ExpressionType);
+            var hasParameters = closure.Parameters.Count == 1;
+            if (hasParameters)
+            {
+                var closureParameter = processedNode.Parameters[0];
+
+                var exprP1Init = new DeclarationStatement(new Declaration(closure.LexicalInfo, CompilerContext.Current.GetUniqueName(closureParameter.Name)),
+                    new MethodInvocationExpression(ReferenceExpression.Lift("System.Linq.Expressions.Expression.Parameter"),
+                        new TypeofExpression() { Type = closureParameter.Type },
+                        new StringLiteralExpression(closureParameter.Name)));
+                var exprP1Ref = new ReferenceExpression(exprP1Init.Declaration.Name);
+
+                var visitor = new GeneratorExpressionTrees(closureParameter.Name, exprP1Ref, NameResolutionService);
+                visitor.Visit(closure.Body);
+                var constructedExpression = visitor.Expression;
+                if (!closureReturnType.Matches(bodyReturnType))
+                {
+                    var convertCall = ReferenceExpression.Lift("System.Linq.Expressions.Expression.Convert");
+                    constructedExpression = new MethodInvocationExpression(convertCall,
+                        constructedExpression,
+                        new TypeofExpression() { Type = closureReturnType });
+                }
+                var exprLambdaGenericArg = new GenericTypeReference("System.Func", closureParameter.Type, closureReturnType);
+                var exprLambdaCall = new GenericReferenceExpression()
+                {
+                    Target = ReferenceExpression.Lift("System.Linq.Expressions.Expression.Lambda"),
+                    GenericArguments = { exprLambdaGenericArg }
+                };
+                var resultExpr = new MethodInvocationExpression(exprLambdaCall,
+                    constructedExpression,
+                    exprP1Ref);
+
+                var linqify = new BlockExpression();
+                var returnType = new GenericTypeReference("System.Linq.Expressions.Expression", exprLambdaGenericArg);
+                NameResolutionService.ResolveSimpleTypeReference(returnType);
+                //this must be set to allow proper type inference
+                processedNode.ExpressionType = returnType.Entity as IType;
+
+                linqify.ReturnType = returnType;
+                linqify.Body.Add(exprP1Init);
+                linqify.Body.Add(new ReturnStatement(resultExpr));
+                return new MethodInvocationExpression(linqify);
+            }
+            else
+            {
+                var visitor = new GeneratorExpressionTrees(null, null, NameResolutionService);
+                visitor.Visit(closure.Body);
+                var constructedExpression = visitor.Expression;
+                if (!closureReturnType.Matches(bodyReturnType))
+                {
+                    var convertCall = ReferenceExpression.Lift("System.Linq.Expressions.Expression.Convert");
+                    constructedExpression = new MethodInvocationExpression(convertCall,
+                        constructedExpression,
+                        new TypeofExpression() { Type = closureReturnType });
+                }
+                var exprLambdaGenericArg = new GenericTypeReference("System.Func", closureReturnType);
+                var exprLambdaCall = new GenericReferenceExpression()
+                {
+                    Target = ReferenceExpression.Lift("System.Linq.Expressions.Expression.Lambda"),
+                    GenericArguments = { exprLambdaGenericArg }
+                };
+                var resultExpr = new MethodInvocationExpression(exprLambdaCall,
+                    constructedExpression);
+
+                var linqify = new BlockExpression();
+                var returnType = new GenericTypeReference("System.Linq.Expressions.Expression", exprLambdaGenericArg);
+                NameResolutionService.ResolveSimpleTypeReference(returnType);
+                //this must be set to allow proper type inference
+                processedNode.ExpressionType = returnType.Entity as IType;
+
+                linqify.ReturnType = returnType;
+                linqify.Body.Add(new ReturnStatement(resultExpr));
+                return new MethodInvocationExpression(linqify);
+            }
 		}
 	}
 }

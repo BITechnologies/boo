@@ -56,6 +56,13 @@ namespace Boo.Lang.Compiler.Steps
             ReplaceCurrentNode(new MethodInvocationExpression(ReferenceExpression.Lift("System.Linq.Expressions.Expression.Constant"), node));
         }
 
+        private void ReplaceWithCallToExpressionConvert(Expression target, TypeReference type)
+        {
+            ReplaceCurrentNode(new MethodInvocationExpression(ReferenceExpression.Lift("System.Linq.Expressions.Expression.Convert"),
+                target,
+                new TypeofExpression() { Type = type }));
+        }
+
         public override void OnBinaryExpression(BinaryExpression node)
         {
             base.OnBinaryExpression(node);
@@ -125,6 +132,12 @@ namespace Boo.Lang.Compiler.Steps
             this.Expression = node.Expression;
         }
 
+        public override void OnReturnStatement(ReturnStatement node)
+        {
+            base.OnReturnStatement(node);
+            this.Expression = node.Expression;
+        }
+
         public override void OnStringLiteralExpression(StringLiteralExpression node)
         {
             ReplaceWithCallToExpressionConstant(node);
@@ -160,6 +173,17 @@ namespace Boo.Lang.Compiler.Steps
             ReplaceWithCallToExpressionConstant(node);
         }
 
+        public override void OnTryCastExpression(TryCastExpression node)
+        {
+            base.OnTryCastExpression(node);
+            ReplaceWithCallToExpressionConvert(node.Target, node.Type);
+        }
+
+        public override void OnCastExpression(CastExpression node)
+        {
+            base.OnCastExpression(node);
+            ReplaceWithCallToExpressionConvert(node.Target, node.Type);
+        }
         public Expression Expression { get; private set; }
     }
 }

@@ -79,7 +79,7 @@ class AbstractInterpreter:
 		pipeline = Pipelines.CompileToMemory()
 		pipeline.RemoveAt(0)
 				
-		pipeline.Replace(Steps.ProcessMethodBodiesWithExpressionTreesGeneration, ProcessVariableDeclarations(self))
+		pipeline.Replace(Steps.ProcessMethodBodiesWithDuckTyping, ProcessVariableDeclarations(self))
 		pipeline.InsertBefore(Steps.EmitAssembly, _referenceProcessor)
 		
 		pipeline.OfType[of Steps.IntroduceModuleClasses]().First().ForceModuleClass = true
@@ -116,7 +116,7 @@ class AbstractInterpreter:
 		if _suggestionCompiler is null:
 			pipeline = Pipelines.ResolveExpressions(BreakOnErrors: false)
 			pipeline.Insert(1, AddRecordedImports(_imports))
-			pipeline.Replace(Steps.ProcessMethodBodiesWithExpressionTreesGeneration, ProcessExpressionsWithInterpreterNamespace(self))
+			pipeline.Replace(Steps.ProcessMethodBodiesWithDuckTyping, ProcessExpressionsWithInterpreterNamespace(self))
 			pipeline.Add(FindCodeCompleteSuggestion())
 			
 			_suggestionCompiler = BooCompiler()
@@ -404,7 +404,7 @@ class AbstractInterpreter:
 				debug type
 				services.CachedCallableTypes.Add(GetGeneratedType(self.Context.GeneratedAssembly, type))
 				
-	class ProcessExpressionsWithInterpreterNamespace(Steps.ProcessMethodBodiesWithExpressionTreesGeneration):
+	class ProcessExpressionsWithInterpreterNamespace(Steps.ProcessMethodBodiesWithDuckTyping):
 		
 		_namespace as InterpreterNamespace
 		_interpreter as AbstractInterpreter

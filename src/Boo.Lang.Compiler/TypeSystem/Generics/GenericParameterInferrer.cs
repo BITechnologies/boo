@@ -29,6 +29,8 @@
 using System;
 using System.Collections.Generic;
 using Boo.Lang.Compiler.Ast;
+using Boo.Lang.Compiler.TypeSystem.Reflection;
+using Boo.Lang.Compiler.Util;
 
 namespace Boo.Lang.Compiler.TypeSystem.Generics
 {
@@ -40,7 +42,7 @@ namespace Boo.Lang.Compiler.TypeSystem.Generics
 		IDictionary<BlockExpression, List<InferredType>> _closureDependencies = new Dictionary<BlockExpression, List<InferredType>>();
 		BlockExpression _currentClosure = null;
 		
-		public delegate void ResolveClosureEventHandler(GenericParameterInferrer inferrer, BlockExpression closure, ICallableType formalType);
+		public delegate void ResolveClosureEventHandler(GenericParameterInferrer inferrer, BlockExpression closure, ICallableType formalType, bool isExpression);
 		public event ResolveClosureEventHandler ResolveClosure;
 
 		public GenericParameterInferrer(CompilerContext context, IMethod genericMethod, ExpressionCollection arguments)
@@ -64,7 +66,16 @@ namespace Boo.Lang.Compiler.TypeSystem.Generics
 				if (closure == null) continue;
 
 				// ICallableType callableType = closure.ExpressionType as ICallableType;
-				ICallableType callableType = argument.FormalType as ICallableType;
+				ICallableType callableType;
+				var expression = IsOfLinqExpressionType(argument.FormalType);
+				if (expression)
+				{
+					callableType = GetCallableTypeFromExpressionType(argument.FormalType);
+				}
+				else
+				{
+					callableType = argument.FormalType as ICallableType;
+				}
 				if (callableType == null) continue;
 				
 				TypeCollector collector = new TypeCollector(delegate(IType t) 
@@ -197,10 +208,19 @@ namespace Boo.Lang.Compiler.TypeSystem.Generics
 
 				if (CanResolveClosure(closure))
 				{
-					var callable = (ICallableType)argument.FormalType;
+					ICallableType callable;
+					var expression = IsOfLinqExpressionType(argument.FormalType);
+					if (expression)
+					{
+						callable = GetCallableTypeFromExpressionType(argument.FormalType);
+					}
+					else
+					{
+						callable = (ICallableType)argument.FormalType;
+					}
 					if (closure.Parameters.Count != callable.GetSignature().Parameters.Length)
 						continue;
-					ResolveClosure(this, closure, callable);
+					ResolveClosure(this, closure, callable, expression);
 					_closureDependencies.Remove(closure);
 					Infer(argument.FormalType, closure.ExpressionType);
 				}
@@ -355,6 +375,17 @@ namespace Boo.Lang.Compiler.TypeSystem.Generics
 
 			public Expression Expression;
 			public IType FormalType;
+		}
+
+		internal static bool IsOfLinqExpressionType(IType type)
+		{
+			return type != null && type.FullName == TypeUtilities.GetFullName(typeof(System.Linq.Expressions.Expression<>));
+		}
+
+		internal static ICallableType GetCallableTypeFromExpressionType(IType type)
+		{
+			var gi = type.ConstructedInfo.GenericArguments;
+			return gi[0] as ICallableType;
 		}
 	}
 }

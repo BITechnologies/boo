@@ -34,6 +34,7 @@ using System.Text;
 using Boo.Lang.Compiler.Ast;
 using Boo.Lang.Compiler.TypeSystem;
 using Boo.Lang.Environments;
+using Boo.Lang.Compiler.TypeSystem.Generics;
 
 namespace Boo.Lang.Compiler.Steps
 {
@@ -86,16 +87,50 @@ namespace Boo.Lang.Compiler.Steps
 				GetTypeFromMethodInvocationContext() ??
 				GetTypeFromDeclarationContext() ??
 				GetTypeFromBinaryExpressionContext() ??
-				GetTypeFromCastContext()) as ICallableType;
+				GetTypeFromCastContext() ??
+				GetTypeFromMethodContext()) as ICallableType;
 
 			return contextType;
+		}
+
+		private IType GetTypeFromMethodContext()
+		{
+			Node parent = Closure.ParentNode;
+			while (parent != null)
+			{
+				if (parent is Method)
+				{
+					break;
+				}
+				parent = parent.ParentNode;
+			};
+			if (parent != null)
+			{
+				var method = (Method)parent;
+                if (method.ReturnType != null)
+                {
+                    var type = TypeSystemServices.GetType(method.ReturnType);
+                    return CheckForExpression(type);
+                }
+			}
+			return null;
+		}
+
+		private IType CheckForExpression(IType type)
+		{
+			if (GenericParameterInferrer.IsOfLinqExpressionType(type))
+			{
+				IsExpression = true;
+				type = GenericParameterInferrer.GetCallableTypeFromExpressionType(type);
+			}
+			return type;
 		}
 
 		private IType GetTypeFromBinaryExpressionContext()
 		{
 			BinaryExpression binary = Closure.ParentNode as BinaryExpression;
 			if (binary == null || Closure != binary.Right) return null;
-			return binary.Left.ExpressionType;
+			return CheckForExpression(binary.Left.ExpressionType);
 		}
 
 		private IType GetTypeFromDeclarationContext()
@@ -113,32 +148,46 @@ namespace Boo.Lang.Compiler.Steps
 				tr = fd.Type;
 			}
 
-			if (tr != null) return tr.Entity as IType;
+			if (tr != null) return CheckForExpression(tr.Entity as IType);
 			return null;
 		}
 
-		private IType GetTypeFromMethodInvocationContext()
-		{
-			if (MethodInvocationContext == null) return null;
+        private IType GetTypeFromMethodInvocationContext()
+        {
+            if (MethodInvocationContext == null) return null;
 
-			IMethod method = MethodInvocationContext.Target.Entity as IMethod;
-			if (method == null) return null;
+            int argumentIndex = MethodInvocationContext.Arguments.IndexOf(Closure);
 
-			int argumentIndex = MethodInvocationContext.Arguments.IndexOf(Closure);
-			IParameter[] parameters = method.GetParameters();
-			
-			if (argumentIndex < parameters.Length) return parameters[argumentIndex].Type;
-			if (method.AcceptVarArgs) return parameters[parameters.Length - 1].Type;
-			return null;
-		}
+            IMethod method = MethodInvocationContext.Target.Entity as IMethod;
+            ILocalEntity local = MethodInvocationContext.Target.Entity as ILocalEntity;
+            IParameter[] parameters = null;
+            if (method != null)
+            {
+                parameters = method.GetParameters();
+            }
+            else if (local != null)
+            {
+                var callableType = local.Type as ICallableType;
+                if (callableType != null)
+                {
+                    parameters = callableType.GetSignature().Parameters;
+                }
+            }
+            if (parameters == null) return null;
+
+            if (argumentIndex < parameters.Length) return CheckForExpression(parameters[argumentIndex].Type);
+            if (method.AcceptVarArgs) return CheckForExpression(parameters[parameters.Length - 1].Type);
+
+            return null;
+        }
 
 		private IType GetTypeFromCastContext()
 		{
 			TryCastExpression tryCast = Closure.ParentNode as TryCastExpression;
-			if (tryCast != null) return tryCast.Type.Entity as IType;
+			if (tryCast != null) return CheckForExpression(tryCast.Type.Entity as IType);
 
 			CastExpression cast = Closure.ParentNode as CastExpression;
-			if (cast != null) return cast.Type.Entity as IType;
+			if (cast != null) return CheckForExpression(cast.Type.Entity as IType);
 
 			return null;
 		}
@@ -157,5 +206,7 @@ namespace Boo.Lang.Compiler.Steps
 		{
 			return Array.IndexOf(ParameterTypes, null) != -1;
 		}
+
+		public bool IsExpression { get; set; }
 	}
 }

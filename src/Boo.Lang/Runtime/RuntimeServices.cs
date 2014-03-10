@@ -35,6 +35,7 @@ using System.IO;
 using System.Text;
 using Boo.Lang.Resources;
 using Boo.Lang.Runtime.DynamicDispatching;
+using System.Linq.Expressions;
 
 namespace Boo.Lang.Runtime
 {
@@ -1766,5 +1767,30 @@ namespace Boo.Lang.Runtime
 					: string.Concat("CLR ", Environment.Version.ToString());
 			}
 		}
+
+        public static MemberExpression StaticPropertyOrField(Type type, string propertyOrFieldName)
+        {
+            if (type == null) throw new ArgumentNullException("type");
+            PropertyInfo property = type.GetProperty(propertyOrFieldName, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.IgnoreCase | BindingFlags.Static);
+            if (property != null)
+            {
+                return Expression.Property(null, property);
+            }
+            FieldInfo field = type.GetField(propertyOrFieldName, BindingFlags.FlattenHierarchy | BindingFlags.Public | BindingFlags.IgnoreCase | BindingFlags.Static);
+            if (field == null)
+            {
+                property = type.GetProperty(propertyOrFieldName, BindingFlags.FlattenHierarchy | BindingFlags.NonPublic | BindingFlags.IgnoreCase | BindingFlags.Static);
+                if (property != null)
+                {
+                    return Expression.Property(null, property);
+                }
+                field = type.GetField(propertyOrFieldName, BindingFlags.FlattenHierarchy | BindingFlags.NonPublic | BindingFlags.IgnoreCase | BindingFlags.Static);
+                if (field == null)
+                {
+                    throw new ArgumentException(string.Format("{0} NotAMemberOfType {1}", propertyOrFieldName, type));
+                }
+            }
+            return Expression.Field(null, field);
+        }
 	}
 }

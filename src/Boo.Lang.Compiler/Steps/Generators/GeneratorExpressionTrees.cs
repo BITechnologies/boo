@@ -1,7 +1,10 @@
 ﻿using Boo.Lang.Compiler.Ast;
+using Boo.Lang.Compiler.TypeSystem;
 using Boo.Lang.Compiler.TypeSystem.Services;
 using System;
 using System.Collections.Generic;
+using Boo.Lang.Runtime;
+using Boo.Lang.Compiler.Util;
 
 namespace Boo.Lang.Compiler.Steps
 {
@@ -16,12 +19,14 @@ namespace Boo.Lang.Compiler.Steps
         private ReferenceExpression _parameterRef;
         private NameResolutionService _nameResolutionService;
         private Stack<CurrentMethod> _methodsStack = new Stack<CurrentMethod>();
+        private BooCodeBuilder _codeBuilder;
 
-        public GeneratorExpressionTrees(string parameter, ReferenceExpression parameterRef, NameResolutionService nameResolutionService)
+        public GeneratorExpressionTrees(string parameter, ReferenceExpression parameterRef, NameResolutionService nameResolutionService, BooCodeBuilder codeBuilder)
         {
             _parameter = parameter;
             _parameterRef = parameterRef;
             _nameResolutionService = nameResolutionService;
+            _codeBuilder = codeBuilder;
         }
 
         private string GetLinqExpressionForOperator(BinaryOperatorType binaryOperatorType)
@@ -65,11 +70,14 @@ namespace Boo.Lang.Compiler.Steps
 
         public override void OnBinaryExpression(BinaryExpression node)
         {
+            var lhs = node.Left.ExpressionType;
+            var rhs = node.Right.ExpressionType;
             base.OnBinaryExpression(node);
             var expression = GetLinqExpressionForOperator(node.Operator);
             ReplaceCurrentNode(new MethodInvocationExpression(
                 ReferenceExpression.Lift(expression),
-                node.Left, node.Right));
+                AddOptionalConvert(rhs, lhs, node.Left), 
+                AddOptionalConvert(lhs, rhs, node.Right)));
         }
 
         public override void OnUnaryExpression(UnaryExpression node)
@@ -92,10 +100,24 @@ namespace Boo.Lang.Compiler.Steps
             }
             else
             {
-                ReplaceCurrentNode(new MethodInvocationExpression(
-                    ReferenceExpression.Lift("System.Linq.Expressions.Expression.PropertyOrField"),
-                    node.Target,
-                    new StringLiteralExpression(node.Name)));
+                if (node.Target is ReferenceExpression && node.Target != _parameterRef)
+                {
+                    var target = new TypeofExpression()
+                    {
+                        Type = _codeBuilder.CreateTypeReference(node.Target.ExpressionType)
+                    };
+                    ReplaceCurrentNode(new MethodInvocationExpression(
+                        ReferenceExpression.Lift("Boo.Lang.Runtime.RuntimeServices.StaticPropertyOrField"),
+                        target,
+                        new StringLiteralExpression(node.Name)));
+                }
+                else
+                {
+                    ReplaceCurrentNode(new MethodInvocationExpression(
+                        ReferenceExpression.Lift("System.Linq.Expressions.Expression.PropertyOrField"),
+                        node.Target,
+                        new StringLiteralExpression(node.Name)));
+                }
             }
         }
 
@@ -107,7 +129,10 @@ namespace Boo.Lang.Compiler.Steps
             }
             else
             {
-                ReplaceWithCallToExpressionConstant(node);
+                if (node.Entity.EntityType != TypeSystem.EntityType.Type)
+                {
+                    ReplaceWithCallToExpressionConstant(node);
+                }
             }
         }
 
@@ -185,5 +210,21 @@ namespace Boo.Lang.Compiler.Steps
             ReplaceWithCallToExpressionConvert(node.Target, node.Type);
         }
         public Expression Expression { get; private set; }
+
+
+        private Expression AddOptionalConvert(IType to, IType from, Expression expression)
+        {
+            if (to == null || from == null)
+                return expression;
+
+            if (TypeSystemServices.IsNullable(to) && from.IsValueType && !TypeSystemServices.IsNullable(from))
+            {
+                var convertCall = ReferenceExpression.Lift("System.Linq.Expressions.Expression.Convert");
+                expression = new MethodInvocationExpression(convertCall,
+                    expression,
+                    new TypeofExpression() { Type = _codeBuilder.CreateTypeReference(to) });
+            }
+            return expression;
+        }
     }
 }

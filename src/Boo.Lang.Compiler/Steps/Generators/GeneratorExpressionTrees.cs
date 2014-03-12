@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using Boo.Lang.Runtime;
 using Boo.Lang.Compiler.Util;
+using System.Linq;
 
 namespace Boo.Lang.Compiler.Steps
 {
@@ -142,11 +143,20 @@ namespace Boo.Lang.Compiler.Steps
             _methodsStack.Push(new CurrentMethod() { Target = target, Name = target.Name });
             base.OnMethodInvocationExpression(node);
             var currentMethod = _methodsStack.Pop();
+            var ga = (currentMethod.Target.Entity as IMethod).ConstructedInfo.GenericArguments ?? new IType[0];
+            ExpressionCollection methodGenericArguments = new ExpressionCollection();
+            methodGenericArguments.AddRange(ga.Select(a => new TypeofExpression { Type = _codeBuilder.CreateTypeReference(a) } as Expression));
+            Expression exprCallTypeArgs = methodGenericArguments.Count > 0
+                ? _codeBuilder.CreateArray(_codeBuilder.TypeSystemServices.Map(typeof(Type[])), methodGenericArguments)
+                : new NullLiteralExpression() as Expression;
+            Expression exprTarget = node.Target.Entity.EntityType == TypeSystem.EntityType.Type
+                ? new TypeofExpression { Type = _codeBuilder.CreateTypeReference(node.Target.Entity as IType) }
+                : node.Target;
             var expressionCallInvocation = new MethodInvocationExpression(
                 ReferenceExpression.Lift("System.Linq.Expressions.Expression.Call"),
-                node.Target,
+                exprTarget,
                 new StringLiteralExpression(currentMethod.Name),
-                new NullLiteralExpression());
+                exprCallTypeArgs);
             expressionCallInvocation.Arguments.AddRange(node.Arguments);
             ReplaceCurrentNode(expressionCallInvocation);
         }

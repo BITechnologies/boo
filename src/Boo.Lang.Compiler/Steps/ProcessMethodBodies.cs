@@ -3422,6 +3422,11 @@ namespace Boo.Lang.Compiler.Steps
 								break;
 							}
 							Expression expression = CreateEquals(node);
+                            if (_keepOperator)
+                            {
+                                node.ExpressionType = expression.ExpressionType;
+                                return;
+                            }
 							node.ParentNode.Replace(node, expression);
 							break;
 						}
@@ -3436,6 +3441,11 @@ namespace Boo.Lang.Compiler.Steps
 								break;
 							}
 							Expression expression = CreateEquals(node);
+                            if (_keepOperator)
+                            {
+                                node.ExpressionType = expression.ExpressionType;
+                                return;
+                            }
 							Node parent = node.ParentNode;
 							parent.Replace(node, CodeBuilder.CreateNotExpression(expression));
 							break;

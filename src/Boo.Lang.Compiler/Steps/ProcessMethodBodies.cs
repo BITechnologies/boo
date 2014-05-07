@@ -2578,8 +2578,8 @@ namespace Boo.Lang.Compiler.Steps
             if (!TypeSystemServices.IsNullable(expressionType) && TypeSystemServices.IsNullable(returnType))
             {
                 var nullable = CreateNullableInstantiation(node.Expression, returnType);
-                Visit(nullable);
                 node.Replace(node.Expression, nullable);
+                Visit(nullable);
                 return;
             }
         }

@@ -2522,6 +2522,16 @@ namespace Boo.Lang.Compiler.Steps
 		{
 			var trueType = GetExpressionType(node.TrueValue);
 			var falseType = GetExpressionType(node.FalseValue);
+            if (TypeSystemServices.IsNullable(trueType) && !TypeSystemServices.IsNullable(falseType))
+            {
+                node.FalseValue = CreateNullableInstantiation(node.FalseValue, trueType);
+                Visit(node.FalseValue);
+            }
+            if (!TypeSystemServices.IsNullable(trueType) && TypeSystemServices.IsNullable(falseType))
+            {
+                node.TrueValue = CreateNullableInstantiation(node.TrueValue, falseType);
+                Visit(node.TrueValue);
+            }
 			BindExpressionType(node, GetMostGenericType(trueType, falseType));
 		}
 
